@@ -2,7 +2,7 @@
 
 A modern medical appointment management system built with Next.js, React, and JWT authentication. Features a responsive design and seamless integration with the ASP.NET Core backend API.
 Here is a demo video of the app and the user flow:
-https://drive.google.com/file/d/146wMkzMuSsTRRJS_3DQ0_xJwu8B-ys08/view?usp=sharing)
+https://drive.google.com/file/d/146wMkzMuSsTRRJS_3DQ0_xJwu8B-ys08/view?usp=sharing
 
 <img width="1919" height="848" alt="Screenshot 2025-09-16 145154" src="https://github.com/user-attachments/assets/6185b38e-3cdd-4d67-a80c-192f29fb45a6" />
 <img width="1919" height="842" alt="Screenshot 2025-09-16 145236" src="https://github.com/user-attachments/assets/4184ebca-d1e3-4692-a917-6f1af701d3d6" />
