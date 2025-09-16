@@ -97,10 +97,16 @@ export default function Dashboard() {
   }
 
   function getStatusDisplay(status) {
-    if (status === 2) {
-      return <span style={{ color: "#dc2626" }}>Cancelled</span>;
+    switch (status) {
+      case 0:
+        return <span className="status-scheduled">Scheduled</span>;
+      case 1:
+        return <span className="status-completed">Completed</span>;
+      case 2:
+        return <span className="status-cancelled">Cancelled</span>;
+      default:
+        return status;
     }
-    return status;
   }
 
   function logout() {
@@ -111,87 +117,120 @@ export default function Dashboard() {
   return (
     <PrivateRoute role="Patient">
       <Layout>
-        <div className="row">
-          <h2>Patient Dashboard</h2>
-          <button onClick={logout}>Logout</button>
+        <div className="dashboard-header">
+          <div>
+            <h2>Patient Dashboard</h2>
+            <p className="welcome-text">
+              Welcome back! Manage your appointments below.
+            </p>
+          </div>
+          <button onClick={logout} className="btn-secondary">
+            Sign Out
+          </button>
         </div>
+
         {err && <div className="error">{err}</div>}
-        <section>
-          <h3>Upcoming Appointments</h3>
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {appointments.map((a) => (
-              <li
-                key={a.id}
-                style={{
-                  background: "#f8fafc",
-                  padding: "12px",
-                  marginBottom: "8px",
-                  borderRadius: "6px",
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <div style={{ marginBottom: "4px" }}>
-                  <strong>Date:</strong>{" "}
-                  {new Date(a.appointmentDate).toLocaleString()}
+
+        <div className="dashboard-grid">
+          <section className="appointments-section">
+            <h3>Your Appointments</h3>
+            <div className="appointment-list">
+              {appointments.length === 0 ? (
+                <div className="no-appointments">
+                  No appointments scheduled yet.
                 </div>
-                <div style={{ marginBottom: "4px" }}>
-                  <strong>Doctor:</strong> Dr.{" "}
-                  {a.doctorName ||
-                    `${a.doctor?.firstName} ${a.doctor?.lastName}`}
-                  {a.doctor?.specialization && ` (${a.doctor.specialization})`}
+              ) : (
+                appointments.map((a) => (
+                  <div key={a.id} className="appointment-card">
+                    <div className="appointment-header">
+                      <div className="appointment-date">
+                        {new Date(a.appointmentDate).toLocaleString()}
+                      </div>
+                      {getStatusDisplay(a.status)}
+                    </div>
+
+                    <div className="appointment-doctor">
+                      <strong>Doctor:</strong> Dr.{" "}
+                      {a.doctorName ||
+                        `${a.doctor?.firstName} ${a.doctor?.lastName}`}
+                      {a.doctor?.specialization && (
+                        <span className="doctor-specialization">
+                          {a.doctor.specialization}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="appointment-reason">
+                      <strong>Reason:</strong> {a.reason}
+                    </div>
+
+                    {a.status !== 2 && (
+                      <button
+                        onClick={() => cancel(a.id)}
+                        className="btn-danger"
+                      >
+                        Cancel Appointment
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="schedule-section">
+            <div className="appointment-form">
+              <h3>Schedule New Appointment</h3>
+              <form onSubmit={schedule}>
+                <div className="form-group">
+                  <label>Select Doctor</label>
+                  <select
+                    required
+                    value={form.doctorId}
+                    onChange={(e) =>
+                      setForm({ ...form, doctorId: e.target.value })
+                    }
+                  >
+                    <option value="">Choose a doctor</option>
+                    {doctors.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        Dr. {d.firstName} {d.lastName} - {d.specialization}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div style={{ marginBottom: "4px" }}>
-                  <strong>Reason:</strong> {a.reason}
+
+                <div className="form-group">
+                  <label>Appointment Date & Time</label>
+                  <input
+                    required
+                    type="datetime-local"
+                    value={form.appointmentDate}
+                    onChange={(e) =>
+                      setForm({ ...form, appointmentDate: e.target.value })
+                    }
+                  />
                 </div>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
-                  <strong>Status:</strong> {getStatusDisplay(a.status)}
-                  {a.status !== 2 && (
-                    <button
-                      onClick={() => cancel(a.id)}
-                      style={{ marginLeft: "auto" }}
-                    >
-                      Cancel
-                    </button>
-                  )}
+
+                <div className="form-group">
+                  <label>Reason for Visit</label>
+                  <input
+                    required
+                    placeholder="Brief description of your visit"
+                    value={form.reason}
+                    onChange={(e) =>
+                      setForm({ ...form, reason: e.target.value })
+                    }
+                  />
                 </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section>
-          <h3>Schedule Appointment</h3>
-          <form className="form" onSubmit={schedule}>
-            <select
-              required
-              value={form.doctorId}
-              onChange={(e) => setForm({ ...form, doctorId: e.target.value })}
-            >
-              <option value="">Select doctor</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.firstName} {d.lastName} - {d.specialization}
-                </option>
-              ))}
-            </select>
-            <input
-              required
-              type="datetime-local"
-              value={form.appointmentDate}
-              onChange={(e) =>
-                setForm({ ...form, appointmentDate: e.target.value })
-              }
-            />
-            <input
-              required
-              placeholder="Reason for visit"
-              value={form.reason}
-              onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            />
-            <button type="submit">Schedule</button>
-          </form>
-        </section>
+
+                <button type="submit" className="btn-primary">
+                  Schedule Appointment
+                </button>
+              </form>
+            </div>
+          </section>
+        </div>
       </Layout>
     </PrivateRoute>
   );

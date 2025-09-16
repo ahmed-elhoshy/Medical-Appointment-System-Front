@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import { PatientApi } from "../../lib/api";
 import Layout from "../../components/Layout";
@@ -14,22 +14,41 @@ export default function Profile() {
     dateOfBirth: "",
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [originalProfile, setOriginalProfile] = useState(null);
+
+  // Debug effect to monitor state changes
+  useEffect(() => {
+    console.log("Edit mode changed:", isEditing);
+  }, [isEditing]);
   const [err, setErr] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const router = useRouter();
 
+  const [initialLoad, setInitialLoad] = useState(true);
+
   useEffect(() => {
-    loadProfile();
-  }, []);
+    if (initialLoad) {
+      loadProfile();
+      setInitialLoad(false);
+    }
+  }, [initialLoad]);
+
+  const user = useMemo(() => getUserFromToken(), []);
 
   async function loadProfile() {
+    if (!user) {
+      router.push("/patient/login");
+      return;
+    }
+
+    if (user.role !== "Patient") {
+      setErr("Not allowed");
+      return;
+    }
+
     setErr(null);
     try {
-      const u = getUserFromToken();
-      if (!u) return router.push("/patient/login");
-      if (u.role !== "Patient") return setErr("Not allowed");
-
-      const res = await PatientApi.getById(u.id);
+      const res = await PatientApi.getById(user.id);
       const data = res.data;
 
       // Format date for input field
@@ -49,6 +68,8 @@ export default function Profile() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!isEditing) return; // Prevent submission if not in edit mode
+
     setErr(null);
     setSuccessMessage(null);
 
@@ -84,93 +105,165 @@ export default function Profile() {
         {err && <div className="error">{err}</div>}
         {successMessage && <div className="success">{successMessage}</div>}
 
-        <form onSubmit={handleSubmit} style={{ maxWidth: "500px" }}>
-          <div className="form-group">
-            <label>First Name:</label>
-            <input
-              type="text"
-              name="firstName"
-              value={profile.firstName}
-              onChange={handleChange}
-              disabled={!isEditing}
-              required
-            />
+        <div className="profile-card">
+          <div className="profile-header">
+            <div className="profile-avatar">
+              {profile.firstName ? profile.firstName[0].toUpperCase() : "P"}
+            </div>
+            <div className="profile-info">
+              <h1>
+                {profile.firstName} {profile.lastName}
+              </h1>
+              <p>{profile.email}</p>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label>Last Name:</label>
-            <input
-              type="text"
-              name="lastName"
-              value={profile.lastName}
-              onChange={handleChange}
-              disabled={!isEditing}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Email:</label>
-            <input
-              type="email"
-              name="email"
-              value={profile.email}
-              onChange={handleChange}
-              disabled={!isEditing}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Phone Number:</label>
-            <input
-              type="tel"
-              name="phoneNumber"
-              value={profile.phoneNumber || ""}
-              onChange={handleChange}
-              disabled={!isEditing}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Date of Birth:</label>
-            <input
-              type="date"
-              name="dateOfBirth"
-              value={profile.dateOfBirth || ""}
-              onChange={handleChange}
-              disabled={!isEditing}
-            />
-          </div>
-
-          <div className="form-group" style={{ marginTop: "20px" }}>
+          <div className={`form-container ${isEditing ? "editing" : ""}`}>
             {!isEditing ? (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                style={{ background: "#2563eb" }}
-              >
-                Edit Profile
-              </button>
+              <>
+                <div className="form-group">
+                  <label>First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={profile.firstName}
+                    disabled
+                    placeholder="Enter your first name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={profile.lastName}
+                    disabled
+                    placeholder="Enter your last name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={profile.email}
+                    disabled
+                    placeholder="Enter your email"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Phone Number</label>
+                  <input
+                    type="tel"
+                    name="phoneNumber"
+                    value={profile.phoneNumber || ""}
+                    disabled
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Date of Birth</label>
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={profile.dateOfBirth || ""}
+                    disabled
+                  />
+                </div>
+
+                <div className="button-group">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log("Enabling edit mode");
+                      setOriginalProfile({ ...profile });
+                      setIsEditing(true);
+                    }}
+                  >
+                    Edit Profile
+                  </button>
+                </div>
+              </>
             ) : (
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button type="submit" style={{ background: "#059669" }}>
-                  Save Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditing(false);
-                    loadProfile(); // Reset form
-                  }}
-                  style={{ background: "#dc2626" }}
-                >
-                  Cancel
-                </button>
-              </div>
+              <form id="profileForm" onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <label>First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={profile.firstName}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter your first name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={profile.lastName}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter your last name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={profile.email}
+                    onChange={handleChange}
+                    required
+                    placeholder="Enter your email"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Phone Number</label>
+                  <input
+                    type="tel"
+                    name="phoneNumber"
+                    value={profile.phoneNumber || ""}
+                    onChange={handleChange}
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Date of Birth</label>
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={profile.dateOfBirth || ""}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div className="button-group">
+                  <button type="submit">Save Changes</button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => {
+                      setProfile(originalProfile);
+                      setIsEditing(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             )}
           </div>
-        </form>
+        </div>
       </Layout>
     </PrivateRoute>
   );

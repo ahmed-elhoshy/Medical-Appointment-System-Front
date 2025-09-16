@@ -4,18 +4,38 @@ import Layout from "../components/Layout";
 export default function Home() {
   return (
     <Layout>
-      <h1>Medical Appointment System</h1>
-      <p>Select role to continue</p>
-      <div className="grid">
-        <div className="card">
-          <h2>Patient</h2>
-          <Link href="/patient/register">Register</Link>
-          <Link href="/patient/login">Login</Link>
-        </div>
-        <div className="card">
-          <h2>Doctor</h2>
-          <Link href="/doctor/register">Register</Link>
-          <Link href="/doctor/login">Login</Link>
+      <div className="home-hero">
+        <h1>Medical Appointment System</h1>
+        <p className="hero-subtitle">Choose your role to get started</p>
+
+        <div className="role-cards">
+          <div className="role-card">
+            <div className="role-icon">👤</div>
+            <h2>Patient</h2>
+            <p>Schedule appointments and manage your medical visits</p>
+            <div className="role-actions">
+              <Link href="/patient/login" className="btn-primary">
+                Sign In
+              </Link>
+              <Link href="/patient/register" className="btn-secondary">
+                Create Account
+              </Link>
+            </div>
+          </div>
+
+          <div className="role-card">
+            <div className="role-icon">👨‍⚕️</div>
+            <h2>Doctor</h2>
+            <p>Manage your appointments and patient schedule</p>
+            <div className="role-actions">
+              <Link href="/doctor/login" className="btn-primary">
+                Sign In
+              </Link>
+              <Link href="/doctor/register" className="btn-secondary">
+                Create Account
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </Layout>
