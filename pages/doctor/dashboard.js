@@ -1,173 +1,177 @@
-import { useEffect, useMemo, useState } from "react";
-import { DoctorApi, extractUserFromToken, getStoredToken } from "../../lib/api";
-import { useAuth } from "../_app";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { DoctorApi, AppointmentsApi } from "../../lib/api";
+import Layout from "../../components/Layout";
+import PrivateRoute from "../../components/PrivateRoute";
+import { getUserFromToken, removeToken } from "../../utils/auth";
 
-export default function DoctorDashboard() {
-  const { userId: ctxUserId, token } = useAuth();
-  const rawToken = getStoredToken() || token || "";
-  const derived = useMemo(
-    () => extractUserFromToken(rawToken) || {},
-    [rawToken]
-  );
-  const effectiveDoctorId = ctxUserId || derived.id || null;
-
-  const [me, setMe] = useState({});
+export default function Dashboard() {
   const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
-    async function load() {
-      try {
-        if (!effectiveDoctorId) return;
-        const [meRes, apptRes] = await Promise.all([
-          DoctorApi.getById(effectiveDoctorId),
-          DoctorApi.getAppointmentsByDoctor(effectiveDoctorId),
-        ]);
-        setMe(meRes.data || {});
-        setAppointments(apptRes.data || []);
-      } finally {
-        setLoading(false);
+    load();
+  }, []);
+
+  async function load() {
+    setErr(null);
+    try {
+      const u = getUserFromToken();
+      if (!u) return router.push("/doctor/login");
+      if (u.role !== "Doctor") return setErr("Not allowed");
+      const doctorId = u.id;
+      const res = await DoctorApi.getAppointmentsByDoctor(doctorId);
+      setAppointments(res.data || []);
+    } catch (ex) {
+      if (ex?.response?.status === 401) router.push("/doctor/login");
+      else if (ex?.response?.status === 403) setErr("Not allowed");
+      else setErr(ex?.response?.data || "Error");
+    }
+  }
+
+  async function cancel(id) {
+    try {
+      await AppointmentsApi.cancel(id);
+      load();
+    } catch (ex) {
+      if (ex?.response?.status === 401) router.push("/doctor/login");
+      else if (ex?.response?.status === 403) setErr("Not allowed");
+      else if (
+        ex?.response?.status === 400 &&
+        ex?.response?.data?.includes("already")
+      ) {
+        setErr("Appointment is already cancelled");
+      } else {
+        setErr("Cancel failed");
       }
     }
-    load();
-  }, [effectiveDoctorId]);
+  }
 
-  const saveProfile = async () => {
-    if (!effectiveDoctorId) return;
-    setSaving(true);
+  async function complete(id) {
     try {
-      const { data } = await DoctorApi.updateById(effectiveDoctorId, {
-        firstName: me.firstName,
-        lastName: me.lastName,
-        specialization: me.specialization,
-        email: me.email,
-        phoneNumber: me.phoneNumber,
-      });
-      setMe(data || {});
-      alert("Profile updated");
-    } finally {
-      setSaving(false);
+      await AppointmentsApi.complete(id);
+      load();
+    } catch (ex) {
+      if (ex?.response?.status === 401) router.push("/doctor/login");
+      else if (ex?.response?.status === 403) setErr("Not allowed");
+      else if (ex?.response?.status === 400) {
+        setErr(
+          "Cannot complete this appointment - it may be already completed or cancelled"
+        );
+      } else if (ex?.response?.status === 404) {
+        setErr("Appointment not found");
+      } else {
+        setErr("Failed to mark as completed");
+      }
     }
-  };
-
-  if (!token) {
-    return (
-      <div
-        style={{
-          background: "white",
-          padding: 20,
-          borderRadius: 12,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h3>You are not logged in</h3>
-        <p>Please login as a doctor to view this page.</p>
-        <Link href="/doctor/login">
-          <button>Go to Doctor Login</button>
-        </Link>
-      </div>
-    );
   }
 
-  if (!effectiveDoctorId) {
-    return (
-      <div
-        style={{
-          background: "white",
-          padding: 20,
-          borderRadius: 12,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h3>Missing identity</h3>
-        <p>We couldn't derive your id from the token. Please re-login.</p>
-        <Link href="/doctor/login">
-          <button>Go to Doctor Login</button>
-        </Link>
-      </div>
-    );
+  function getStatusDisplay(status) {
+    switch (status) {
+      case 0:
+        return <span style={{ color: "#2563eb" }}>Scheduled</span>;
+      case 1:
+        return <span style={{ color: "#059669" }}>Completed</span>;
+      case 2:
+        return <span style={{ color: "#dc2626" }}>Cancelled</span>;
+      default:
+        return status;
+    }
   }
 
-  if (loading) return <div>Loading...</div>;
+  function getActionButtons(appointment) {
+    if (appointment.status === 2) return null; // No actions for cancelled appointments
+
+    const buttons = [];
+
+    // Show Complete button only for scheduled appointments
+    if (appointment.status === 0) {
+      buttons.push(
+        <button
+          key="complete"
+          onClick={() => complete(appointment.id)}
+          style={{
+            background: "#059669",
+            marginLeft: "8px",
+          }}
+        >
+          Mark Completed
+        </button>
+      );
+    }
+
+    // Show Cancel for non-completed appointments
+    if (appointment.status !== 1) {
+      buttons.push(
+        <button
+          key="cancel"
+          onClick={() => cancel(appointment.id)}
+          style={{
+            background: "#dc2626",
+            marginLeft: "8px",
+          }}
+        >
+          Cancel
+        </button>
+      );
+    }
+
+    return buttons;
+  }
+
+  function logout() {
+    removeToken();
+    router.push("/");
+  }
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <section
-        style={{
-          background: "white",
-          padding: 20,
-          borderRadius: 12,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Doctor Dashboard</h2>
-        <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
-          <label>
-            First Name
-            <input
-              value={me.firstName || ""}
-              onChange={(e) => setMe({ ...me, firstName: e.target.value })}
-            />
-          </label>
-          <label>
-            Last Name
-            <input
-              value={me.lastName || ""}
-              onChange={(e) => setMe({ ...me, lastName: e.target.value })}
-            />
-          </label>
-          <label>
-            Specialization
-            <input
-              value={me.specialization || ""}
-              onChange={(e) => setMe({ ...me, specialization: e.target.value })}
-            />
-          </label>
-          <label>
-            Email
-            <input
-              type="email"
-              value={me.email || ""}
-              onChange={(e) => setMe({ ...me, email: e.target.value })}
-            />
-          </label>
-          <label>
-            Phone Number
-            <input
-              value={me.phoneNumber || ""}
-              onChange={(e) => setMe({ ...me, phoneNumber: e.target.value })}
-            />
-          </label>
-          <button onClick={saveProfile} disabled={saving}>
-            {saving ? "Saving..." : "Save Profile"}
-          </button>
+    <PrivateRoute role="Doctor">
+      <Layout>
+        <div className="row">
+          <h2>Doctor Dashboard</h2>
+          <button onClick={logout}>Logout</button>
         </div>
-      </section>
-
-      <section
-        style={{
-          background: "white",
-          padding: 20,
-          borderRadius: 12,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h3 style={{ marginTop: 0 }}>Scheduled Appointments</h3>
-        {appointments.length === 0 ? (
-          <div>No appointments.</div>
-        ) : (
-          <ul>
+        {err && <div className="error">{err}</div>}
+        <section>
+          <h3>Scheduled Appointments</h3>
+          <ul style={{ listStyle: "none", padding: 0 }}>
             {appointments.map((a) => (
-              <li key={a.id}>
-                {new Date(a.appointmentDate).toLocaleString()} with{" "}
-                {a.patient?.firstName} {a.patient?.lastName} — {a.status}
+              <li
+                key={a.id}
+                style={{
+                  background: "#f8fafc",
+                  padding: "12px",
+                  marginBottom: "8px",
+                  borderRadius: "6px",
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <div style={{ marginBottom: "4px" }}>
+                  <strong>Date:</strong>{" "}
+                  {new Date(a.appointmentDate).toLocaleString()}
+                </div>
+                <div style={{ marginBottom: "4px" }}>
+                  <strong>Patient:</strong>{" "}
+                  {a.patientName ||
+                    `${a.patient?.firstName} ${a.patient?.lastName}`}
+                </div>
+                <div style={{ marginBottom: "4px" }}>
+                  <strong>Reason:</strong> {a.reason}
+                </div>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <strong>Status:</strong> {getStatusDisplay(a.status)}
+                  <div style={{ marginLeft: "auto" }}>
+                    {getActionButtons(a)}
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
-        )}
-      </section>
-    </div>
+        </section>
+      </Layout>
+    </PrivateRoute>
   );
 }

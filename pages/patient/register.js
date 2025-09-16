@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { AuthApi } from "../../lib/api";
 import { useRouter } from "next/router";
+import { api } from "../../lib/api";
+import Layout from "../../components/Layout";
 
-export default function PatientRegister() {
-  const router = useRouter();
+export default function Register() {
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -12,98 +12,69 @@ export default function PatientRegister() {
     phoneNumber: "",
     password: "",
   });
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState(null);
+  const router = useRouter();
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
+  async function submit(e) {
     e.preventDefault();
-    setSubmitting(true);
-    setError("");
+    setErr(null);
     try {
-      await AuthApi.registerPatient({
+      const payload = {
         firstName: form.firstName,
         lastName: form.lastName,
         dateOfBirth: form.dateOfBirth,
         email: form.email,
         phoneNumber: form.phoneNumber,
         password: form.password,
-      });
-      router.push("/patient/login");
-    } catch (err) {
-      setError(err?.response?.data?.message || "Registration failed");
-    } finally {
-      setSubmitting(false);
+      };
+      const res = await api.post("/patients/register", payload);
+      if (res.status === 201 || res.status === 200)
+        router.push("/patient/login");
+    } catch (ex) {
+      setErr(ex?.response?.data || "Registration failed");
     }
-  };
+  }
 
   return (
-    <div>
-      <h2>Patient Registration</h2>
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "grid", gap: 12, maxWidth: 480 }}
-      >
-        <label>
-          First Name
-          <input
-            name="firstName"
-            value={form.firstName}
-            onChange={handleChange}
-          />
-        </label>
-        <label>
-          Last Name
-          <input
-            name="lastName"
-            value={form.lastName}
-            onChange={handleChange}
-          />
-        </label>
-        <label>
-          Date of Birth
-          <input
-            type="date"
-            name="dateOfBirth"
-            value={form.dateOfBirth}
-            onChange={handleChange}
-          />
-        </label>
-        <label>
-          Email
-          <input
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-          />
-        </label>
-        <label>
-          Phone Number
-          <input
-            name="phoneNumber"
-            value={form.phoneNumber}
-            onChange={handleChange}
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-          />
-        </label>
-        {error && <div style={{ color: "red" }}>{error}</div>}
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Submitting..." : "Register"}
-        </button>
+    <Layout>
+      <h2>Patient Register</h2>
+      {err && <div className="error">{JSON.stringify(err)}</div>}
+      <form className="form" onSubmit={submit}>
+        <input
+          required
+          placeholder="First name"
+          onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+        />
+        <input
+          required
+          placeholder="Last name"
+          onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+        />
+        <input
+          required
+          type="date"
+          placeholder="DOB"
+          onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+        />
+        <input
+          required
+          type="email"
+          placeholder="Email"
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+        <input
+          required
+          placeholder="Phone"
+          onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
+        />
+        <input
+          required
+          type="password"
+          placeholder="Password"
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+        <button type="submit">Register</button>
       </form>
-    </div>
+    </Layout>
   );
 }

@@ -1,35 +1,23 @@
 import Link from "next/link";
+import Layout from "../components/Layout";
 
 export default function Home() {
   return (
-    <div style={{ display: "grid", gap: 20 }}>
-      <section
-        style={{
-          background: "white",
-          padding: 20,
-          borderRadius: 12,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        }}
-      >
-        <h1 style={{ marginTop: 0 }}>
-          Welcome to the Medical Appointment System
-        </h1>
-        <p>Register or log in to manage appointments and your profile.</p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Link href="/patient/register">
-            <button>Patient Registration</button>
-          </Link>
-          <Link href="/patient/login">
-            <button>Patient Login</button>
-          </Link>
-          <Link href="/doctor/register">
-            <button>Doctor Registration</button>
-          </Link>
-          <Link href="/doctor/login">
-            <button>Doctor Login</button>
-          </Link>
+    <Layout>
+      <h1>Medical Appointment System</h1>
+      <p>Select role to continue</p>
+      <div className="grid">
+        <div className="card">
+          <h2>Patient</h2>
+          <Link href="/patient/register">Register</Link>
+          <Link href="/patient/login">Login</Link>
         </div>
-      </section>
-    </div>
+        <div className="card">
+          <h2>Doctor</h2>
+          <Link href="/doctor/register">Register</Link>
+          <Link href="/doctor/login">Login</Link>
+        </div>
+      </div>
+    </Layout>
   );
 }

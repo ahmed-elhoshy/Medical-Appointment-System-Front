@@ -32,3 +32,4 @@ Set `NEXT_PUBLIC_API_BASE_URL` to your backend URL.
 - pages/: route pages
 - components/: shared UI components
 - lib/api.js: axios instance and endpoint wrappers
+
